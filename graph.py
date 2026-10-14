@@ -31,7 +31,10 @@ Traversals (work with EITHER storage, they only call graph.neighbors(v)):
   dfs_iterative  - Depth-First Search, Option B: explicit stack. Same
                    idea, no recursion limit.
 
-Complexity with an adjacency list: O(V + E) time, O(V) extra memory.
+Complexity with an adjacency list: O(V + E) time.
+Extra memory: O(V) for bfs and dfs_recursive (plus the call stack).
+dfs_iterative is O(E) in the worst case, because the same vertex can be
+pushed once per incoming edge before it is popped and visited.
 With an adjacency matrix:          O(V^2)   time.
 """
 

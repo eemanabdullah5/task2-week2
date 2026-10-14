@@ -8,7 +8,8 @@ This file gives you:
   1. TreeNode            - one box in the tree (value + left + right)
   2. BinaryTree          - any binary tree; holds all the traversals
   3. BinarySearchTree    - a binary tree that keeps itself ordered:
-                           smaller values go left, bigger values go right ie sorted
+                           smaller values go left, bigger values go right,
+                           so an in-order traversal gives sorted output
   4. build_from_level_order - build ANY binary tree (not ordered) from a list
 
 Traversal = visiting every node exactly once. There are 4 classic orders:
@@ -25,6 +26,11 @@ OPTIONS shown for each traversal:
                            a bit longer, but never hits the recursion limit.
 
 All traversals are O(n) time - each node is visited once.
+
+BST insert/contains are O(h), where h is the tree's height. Random input
+keeps h ~ O(log n), but there is no rebalancing: SORTED input builds a
+"linked list" with h = n, so inserts become O(n) each (O(n^2) to build)
+and the recursive traversals hit Python's recursion limit.
 """
 
 from collections import deque
@@ -180,7 +186,8 @@ class BinaryTree:
         return result
 
     def levels(self):
-        """Same as level_order(gives one complete row) but grouped per row: [[root], [row2...], ...]
+        """Same visit order as level_order (which returns one flat list),
+        but grouped into one list per row: [[root], [row2...], ...]
         Handy for printing the tree shape."""
         if self.root is None:
             return []
