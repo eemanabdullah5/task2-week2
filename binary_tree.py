@@ -6,9 +6,10 @@ a `left` child and a `right` child.
 
 This file gives you:
   1. TreeNode            - one box in the tree (value + left + right)
-  2. BinarySearchTree    - a binary tree that keeps itself ordered:
-                           smaller values go left, bigger values go right
-  3. build_from_level_order - build ANY binary tree (not ordered) from a list
+  2. BinaryTree          - any binary tree; holds all the traversals
+  3. BinarySearchTree    - a binary tree that keeps itself ordered:
+                           smaller values go left, bigger values go right ie sorted
+  4. build_from_level_order - build ANY binary tree (not ordered) from a list
 
 Traversal = visiting every node exactly once. There are 4 classic orders:
 
@@ -41,56 +42,15 @@ class TreeNode:
         return f"TreeNode({self.value})"
 
 
-class BinarySearchTree:
+class BinaryTree:
     """
-    Binary Search Tree (BST) rule:
-        everything in the LEFT subtree  <  node.value
-        everything in the RIGHT subtree >  node.value
-    Duplicates are ignored.
+    A general binary tree: no ordering rule between parent and children.
+    Holds the traversals, which work on ANY binary tree.
     """
 
-    def __init__(self, values=None):
+    def __init__(self):
         self.root = None
         self.size = 0
-        for v in values or []:
-            self.insert(v)
-
-    # ------------------------------------------------------------------ #
-    # Basic operations
-    # ------------------------------------------------------------------ #
-    def insert(self, value):
-        """Walk down from the root, go left if smaller, right if bigger,
-        and attach the new node at the first empty spot."""
-        new_node = TreeNode(value)
-        if self.root is None:
-            self.root = new_node
-            self.size += 1
-            return
-
-        current = self.root
-        while True:
-            if value < current.value:
-                if current.left is None:
-                    current.left = new_node
-                    break
-                current = current.left
-            elif value > current.value:
-                if current.right is None:
-                    current.right = new_node
-                    break
-                current = current.right
-            else:
-                return  # duplicate -> do nothing
-        self.size += 1
-
-    def contains(self, value):
-        """Search: same walk as insert, but just look."""
-        current = self.root
-        while current is not None:
-            if value == current.value:
-                return True
-            current = current.left if value < current.value else current.right
-        return False
 
     def height(self):
         """Number of levels in the tree (empty tree = 0).
@@ -220,7 +180,7 @@ class BinarySearchTree:
         return result
 
     def levels(self):
-        """Same as level_order but grouped per row: [[root], [row2...], ...]
+        """Same as level_order(gives one complete row) but grouped per row: [[root], [row2...], ...]
         Handy for printing the tree shape."""
         if self.root is None:
             return []
@@ -239,6 +199,57 @@ class BinarySearchTree:
         return rows
 
 
+class BinarySearchTree(BinaryTree):
+    """
+    Binary Search Tree (BST) rule:
+        everything in the LEFT subtree  <  node.value
+        everything in the RIGHT subtree >  node.value
+    Duplicates are ignored.
+    """
+
+    def __init__(self, values=None):
+        super().__init__()
+        for v in values or []:
+            self.insert(v)
+
+    # ------------------------------------------------------------------ #
+    # Basic operations (these rely on the BST ordering rule)
+    # ------------------------------------------------------------------ #
+    def insert(self, value):
+        """Walk down from the root, go left if smaller, right if bigger,
+        and attach the new node at the first empty spot."""
+        new_node = TreeNode(value)
+        if self.root is None:
+            self.root = new_node
+            self.size += 1
+            return
+
+        current = self.root
+        while True:
+            if value < current.value:
+                if current.left is None:
+                    current.left = new_node
+                    break
+                current = current.left
+            elif value > current.value:
+                if current.right is None:
+                    current.right = new_node
+                    break
+                current = current.right
+            else:
+                return  # duplicate -> do nothing
+        self.size += 1
+
+    def contains(self, value):
+        """Search: same walk as insert, but just look."""
+        current = self.root
+        while current is not None:
+            if value == current.value:
+                return True
+            current = current.left if value < current.value else current.right
+        return False
+
+
 def build_from_level_order(values):
     """
     Build a GENERAL binary tree (not ordered) from a level-order list,
@@ -250,10 +261,10 @@ def build_from_level_order(values):
                                           \\
                                            4
 
-    Returns a BinarySearchTree object only so we can reuse its traversal
-    methods - the BST ordering rule does NOT apply to this tree.
+    Returns a plain BinaryTree (traversals only, no insert/contains),
+    because the BST ordering rule does NOT apply to this tree.
     """
-    tree = BinarySearchTree()
+    tree = BinaryTree()
     if not values or values[0] is None:
         return tree
 

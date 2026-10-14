@@ -67,14 +67,19 @@ def graph_matrix():
 
 def random_graph(n, edges_per_node=4):
     """Connected random undirected graph: a random chain (guarantees
-    connectivity) plus extra random edges."""
+    connectivity) plus extra random edges (no self-loops, no repeats)."""
     g = Graph()
     nodes = list(range(n))
     random.shuffle(nodes)
     for i in range(n - 1):
         g.add_edge(nodes[i], nodes[i + 1])
-    for _ in range(n * (edges_per_node - 1) // 2):
-        g.add_edge(random.randrange(n), random.randrange(n))
+    max_extra = n * (n - 1) // 2 - (n - 1)   # never ask for more than fits
+    extra = min(n * (edges_per_node - 1) // 2, max_extra)
+    added = 0
+    while added < extra:
+        u, v = random.randrange(n), random.randrange(n)
+        if u != v and g.add_edge(u, v):
+            added += 1
     return g
 
 
@@ -161,6 +166,17 @@ def visits_all_once(order, expected):
     return len(order) == len(set(order)) and set(order) == set(expected)
 
 
+def raises(exc_type, fn, *args):
+    """True if fn(*args) raises exc_type (and nothing else)."""
+    try:
+        fn(*args)
+    except exc_type:
+        return True
+    except Exception:
+        return False
+    return False
+
+
 def part3_tests():
     title("PART 3 - Correctness tests")
 
@@ -214,6 +230,56 @@ def part3_tests():
     for name, fn in [("BFS", bfs), ("DFS rec", dfs_recursive), ("DFS iter", dfs_iterative)]:
         check(f"random 5000-node graph {name} visits all once",
               visits_all_once(fn(big, 0), range(5000)))
+
+    # Edge cases
+    g = Graph()
+    g.add_edge(None, "b")
+    g.add_edge("b", "c")
+    check("shortest path works when None is a vertex",
+          bfs_shortest_path(g, None, "c") == [None, "b", "c"])
+    check("shortest path start == goal is [start]",
+          bfs_shortest_path(g, "b", "b") == ["b"])
+
+    check("traverse_all rejects directed graphs",
+          raises(ValueError, traverse_all, graph_directed_with_cycle(), "dfs"))
+    check("traverse_all rejects unknown traversal name",
+          raises(ValueError, traverse_all, graph_disconnected(), "BFS"))
+
+    general = build_from_level_order([1, 5, 3])
+    check("build_from_level_order is not a BST (no contains/insert)",
+          not isinstance(general, BinarySearchTree) and not hasattr(general, "contains"))
+    check("build_from_level_order tree still traverses",
+          build_from_level_order([1, 2, 3, None, 4]).preorder_iterative() == [1, 2, 4, 3])
+
+    g = graph_simple_undirected()
+    for name, fn in [("BFS", bfs), ("DFS rec", dfs_recursive), ("DFS iter", dfs_iterative)]:
+        check(f"{name} from missing vertex raises ValueError", raises(ValueError, fn, g, "Q"))
+    check("shortest path to missing vertex raises ValueError",
+          raises(ValueError, bfs_shortest_path, g, "A", "Q"))
+    m = MatrixGraph(3)
+    check("matrix add_edge(-1, 0) raises ValueError", raises(ValueError, m.add_edge, -1, 0))
+    check("matrix left unchanged after bad add_edge", m.matrix == [[0] * 3 for _ in range(3)])
+    check("matrix BFS from out-of-range vertex raises ValueError", raises(ValueError, bfs, m, 3))
+
+    g = Graph()
+    check("first add_edge returns True", g.add_edge("a", "b") is True)
+    check("repeated add_edge returns False", g.add_edge("a", "b") is False)
+    check("reverse of undirected edge is a repeat", g.add_edge("b", "a") is False)
+    check("no parallel edges stored", g.adj == {"a": ["b"], "b": ["a"]})
+    g.add_edge("a", "a")
+    check("undirected self-loop stored once", g.adj["a"] == ["b", "a"])
+    check("edge_count counts a-b and a-a once each", g.edge_count() == 2)
+    g = Graph(directed=True)
+    g.add_edge(1, 2)
+    g.add_edge(1, 2)
+    g.add_edge(2, 1)
+    check("directed: repeat ignored, reverse is a new edge", g.edge_count() == 2)
+
+    rg = random_graph(300)
+    check("random_graph has no self-loops or repeated edges",
+          all(v not in ns and len(ns) == len(set(ns)) for v, ns in rg.adj.items()))
+    check("random_graph has exactly the requested edge count",
+          rg.edge_count() == 299 + 300 * 3 // 2)
 
     print(f"\n  {passed} passed, {failed} failed")
 

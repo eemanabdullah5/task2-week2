@@ -51,11 +51,19 @@ class Graph:
             self.adj[v] = []
 
     def add_edge(self, u, v):
+        """Add edge u-v (u->v if directed). Repeated edges are ignored.
+        Returns True if the edge was new."""
         self.add_vertex(u)
         self.add_vertex(v)
+        if v in self.adj[u]:
+            return False           # already there -> no parallel edges
         self.adj[u].append(v)
-        if not self.directed:
+        if not self.directed and u != v:
             self.adj[v].append(u)  # undirected: add the reverse edge too
+        return True
+
+    def has_vertex(self, v):
+        return v in self.adj
 
     def neighbors(self, v):
         return self.adj[v]
@@ -65,7 +73,11 @@ class Graph:
 
     def edge_count(self):
         total = sum(len(n) for n in self.adj.values())
-        return total if self.directed else total // 2
+        if self.directed:
+            return total
+        # undirected: each edge is stored twice, except a self-loop (once)
+        loops = sum(1 for v, n in self.adj.items() if v in n)
+        return (total - loops) // 2 + loops
 
     def __str__(self):
         arrow = "->" if self.directed else "--"
@@ -83,9 +95,14 @@ class MatrixGraph:
         self.matrix = [[0] * n for _ in range(n)]
 
     def add_edge(self, u, v):
+        _require_vertex(self, u)       # stops -1 silently meaning "last row"
+        _require_vertex(self, v)
         self.matrix[u][v] = 1
         if not self.directed:
             self.matrix[v][u] = 1
+
+    def has_vertex(self, v):
+        return isinstance(v, int) and 0 <= v < self.n
 
     def has_edge(self, u, v):          # the O(1) advantage of a matrix
         return self.matrix[u][v] == 1
@@ -106,8 +123,15 @@ class MatrixGraph:
 # ====================================================================== #
 # Traversals
 # ====================================================================== #
+def _require_vertex(graph, v):
+    """Fail with a clear message instead of a bare KeyError/IndexError."""
+    if not graph.has_vertex(v):
+        raise ValueError(f"vertex {v!r} is not in the graph")
+
+
 def bfs(graph, start):
     """Breadth-First Search. Returns vertices in the order visited."""
+    _require_vertex(graph, start)
     visited = {start}          # mark when ADDED to queue -> no duplicates
     queue = deque([start])
     order = []
@@ -123,6 +147,7 @@ def bfs(graph, start):
 
 def dfs_recursive(graph, start):
     """Depth-First Search, Option A (recursion)."""
+    _require_vertex(graph, start)
     visited = set()
     order = []
 
@@ -141,6 +166,7 @@ def dfs_iterative(graph, start):
     """Depth-First Search, Option B (explicit stack).
     Neighbours are pushed in REVERSE so the visit order matches
     dfs_recursive exactly (handy for testing)."""
+    _require_vertex(graph, start)
     visited = set()
     stack = [start]
     order = []
@@ -159,6 +185,8 @@ def dfs_iterative(graph, start):
 def bfs_shortest_path(graph, start, goal):
     """Bonus: BFS also finds the shortest path (fewest edges).
     We remember each vertex's 'parent', then walk back from goal."""
+    _require_vertex(graph, start)
+    _require_vertex(graph, goal)
     parent = {start: None}
     queue = deque([start])
     while queue:
@@ -171,17 +199,26 @@ def bfs_shortest_path(graph, start, goal):
                 queue.append(w)
     if goal not in parent:
         return None            # unreachable
-    path = []
-    while goal is not None:
-        path.append(goal)
-        goal = parent[goal]
+    # walk back until we reach start (not until None: None may be a vertex)
+    v = goal
+    path = [v]
+    while v != start:
+        v = parent[v]
+        path.append(v)
     return path[::-1]
 
 
 def traverse_all(graph, traversal):
     """A single BFS/DFS only reaches what's connected to `start`.
     To visit EVERY vertex of a disconnected graph, restart from each
-    unvisited vertex. Returns a list of components (each a visit order)."""
+    unvisited vertex. Returns a list of components (each a visit order).
+
+    Undirected graphs only: in a directed graph the pieces found this way
+    depend on the start order and are not real components."""
+    if graph.directed:
+        raise ValueError("traverse_all needs an undirected graph")
+    if traversal not in ("bfs", "dfs"):
+        raise ValueError(f"traversal must be 'bfs' or 'dfs', got {traversal!r}")
     seen = set()
     components = []
     for v in graph.vertices():
